@@ -3,14 +3,16 @@ const { ethers } = require("hardhat");
 const hre = require("hardhat");
 
 describe("Rps", function () {
-
-  let Token;
   let rpsContract;
   let usdcContract;
   let owner;
   let addr1;
   let addr2;
   let addrs;
+  let addr1RPS;
+  let addr2RPS;
+  let addr1USDC;
+  let addr2USDC;
 
   beforeEach(async function () {
 
@@ -23,7 +25,6 @@ describe("Rps", function () {
     [owner, addr1, addr2, ...addrs] = await ethers.getSigners();
     await usdcContract.mint(addr1.address, 5000);
     await usdcContract.mint(addr2.address, 5000);
-    // rpsContract = await Token.deploy();
   });
 
   describe("deployment", function () {
@@ -32,14 +33,21 @@ describe("Rps", function () {
     });
   });
 
+  beforeEach(async function () {
+    addr1USDC = await usdcContract.connect(addr1);
+    addr1RPS = await rpsContract.connect(addr1);
+
+    addr2USDC = await usdcContract.connect(addr2);
+    addr2RPS = await rpsContract.connect(addr2);
+  });
   describe("Transactions", function () {
     it("Should enroll accounts", async function () {
 
-      await usdcContract.connect(addr1).approve(rpsContract.address, 2000);
-      await rpsContract.connect(addr1).enrollPlayer(2000);
+      addr1USDC.approve(rpsContract.address, 2000);
+      addr1RPS.enrollPlayer(2000);
 
-      await usdcContract.connect(addr2).approve(rpsContract.address, 2000);
-      await rpsContract.connect(addr2).enrollPlayer(2000);
+      addr2USDC.approve(rpsContract.address, 2000);
+      addr2RPS.enrollPlayer(2000);
 
       const player1 = await rpsContract.enrolledPlayers(addr1.address);
       expect(player1).to.equal(true);
@@ -49,39 +57,39 @@ describe("Rps", function () {
     });
 
     it("Should allow to submit move", async function () {
-      await usdcContract.connect(addr1).approve(rpsContract.address, 2000);
-      await rpsContract.connect(addr1).enrollPlayer(2000);
+      addr1USDC.approve(rpsContract.address, 2000);
+      addr1RPS.enrollPlayer(2000);
 
-      await rpsContract.connect(addr1).submitMove(1,2000);
+      addr1RPS.submitMove(1,2000);
     });
 
     it("Should allow to submit move and fight player 2", async function () {
-      await usdcContract.connect(addr1).approve(rpsContract.address, 2000);
-      await rpsContract.connect(addr1).enrollPlayer(2000);
+      addr1USDC.approve(rpsContract.address, 2000);
+      addr1RPS.enrollPlayer(2000);
 
-      await usdcContract.connect(addr2).approve(rpsContract.address, 2000);
-      await rpsContract.connect(addr2).enrollPlayer(2000);
+      addr2USDC.approve(rpsContract.address, 2000);
+      addr2RPS.enrollPlayer(2000);
 
 
-      await rpsContract.connect(addr1).submitMove(1,2000);
-      await rpsContract.connect(addr2).submitMove(1,2000);
+      addr1RPS.submitMove(1,2000);
+      addr2RPS.submitMove(1,2000);
 
-      await rpsContract.connect(addr2).battleWith(addr1.address);
+      addr2RPS.battleWith(addr1.address);
     });
 
     it("Should win fight with player 2 and have balance 0, since it has not been withdrawn", async function () {
-      await usdcContract.connect(addr1).approve(rpsContract.address, 2000);
-      await rpsContract.connect(addr1).enrollPlayer(2000);
+      addr1USDC.approve(rpsContract.address, 2000);
+      addr1RPS.enrollPlayer(2000);
 
-      await usdcContract.connect(addr2).approve(rpsContract.address, 2000);
-      await rpsContract.connect(addr2).enrollPlayer(2000);
+      addr2USDC.approve(rpsContract.address, 2000);
+      addr2RPS.enrollPlayer(2000);
 
-      await rpsContract.connect(addr1).submitMove(1,2000);
-      await rpsContract.connect(addr2).submitMove(0,2000);
+      addr1RPS.submitMove(1,2000);
+      addr2RPS.submitMove(0,2000);
 
-      await rpsContract.connect(addr2).battleWith(addr1.address);
+      addr2RPS.battleWith(addr1.address);
 
-      const bal = await rpsContract.connect(addr1).getPlayerBalance(owner.address);
+      const bal = await addr1RPS.getPlayerBalance(owner.address);
       expect(bal).to.equal(0)
     });
 
@@ -92,23 +100,23 @@ describe("Rps", function () {
     });
 
     it("Should not be able to battle with self", async function () {
-      await usdcContract.connect(addr2).approve(rpsContract.address, 2000);
-      await rpsContract.connect(addr2).enrollPlayer(2000);
-      await rpsContract.connect(addr2).submitMove(1,2000);
+      addr2USDC.approve(rpsContract.address, 2000);
+      addr2RPS.enrollPlayer(2000);
+      addr2RPS.submitMove(1,2000);
       await expect(
           rpsContract.connect(addr2).battleWith(addr2.address)
       ).to.be.revertedWith("who plays with themselves");
     });
 
     it("Should be able to fight and withdraw funds/earnings", async function (){
-      await usdcContract.connect(addr1).approve(rpsContract.address, 2000);
-      await rpsContract.connect(addr1).enrollPlayer(2000);
+      addr1USDC.approve(rpsContract.address, 2000);
+      addr1RPS.enrollPlayer(2000);
 
-      await usdcContract.connect(addr2).approve(rpsContract.address, 2000);
-      await rpsContract.connect(addr2).enrollPlayer(2000);
+      addr2USDC.approve(rpsContract.address, 2000);
+      addr2RPS.enrollPlayer(2000);
       // Move enum [Rock = 0, Paper = 1, Scissor = 2]
-      await rpsContract.connect(addr1).submitMove(0,2000);
-      await rpsContract.connect(addr2).submitMove(2,2000);
+      addr1RPS.submitMove(0,2000);
+      addr2RPS.submitMove(2,2000);
 
       // Result enum [Player1 = 0, Player2 = 1, Draw = 2]
       // third param is winner/result
@@ -116,7 +124,7 @@ describe("Rps", function () {
           .to.emit(rpsContract, 'MatchEnded')
           .withArgs(addr1.address, addr2.address, 0);
 
-      // await rpsContract.connect(addr1).withdrawBalance();
+      // addr1RPS.withdrawBalance();
 
       // Players have 5k each and deposits 2000 to the contract, each used 2000 bet.
       // Player 1 wins 2000, now Player have 2000 usdc.
@@ -133,14 +141,14 @@ describe("Rps", function () {
   describe("Rock Paper Scissor simulation", function () {
     it("Player 1(Rock) Should win over Scissors", async function () {
 
-      await usdcContract.connect(addr1).approve(rpsContract.address, 2000);
-      await rpsContract.connect(addr1).enrollPlayer(2000);
+      addr1USDC.approve(rpsContract.address, 2000);
+      addr1RPS.enrollPlayer(2000);
 
-      await usdcContract.connect(addr2).approve(rpsContract.address, 2000);
-      await rpsContract.connect(addr2).enrollPlayer(2000);
+      addr2USDC.approve(rpsContract.address, 2000);
+      addr2RPS.enrollPlayer(2000);
       // Move enum [Rock = 0, Paper = 1, Scissor = 2]
-      await rpsContract.connect(addr1).submitMove(0,2000);
-      await rpsContract.connect(addr2).submitMove(2,2000);
+      addr1RPS.submitMove(0,2000);
+      addr2RPS.submitMove(2,2000);
 
       // Result enum [Player1 = 0, Player2 = 1, Draw = 2]
       // third param is winner/result
@@ -151,14 +159,14 @@ describe("Rps", function () {
 
     it("Player 1(Paper) Should lose over Scissors", async function () {
 
-      await usdcContract.connect(addr1).approve(rpsContract.address, 2000);
-      await rpsContract.connect(addr1).enrollPlayer(2000);
+      addr1USDC.approve(rpsContract.address, 2000);
+      addr1RPS.enrollPlayer(2000);
 
-      await usdcContract.connect(addr2).approve(rpsContract.address, 2000);
-      await rpsContract.connect(addr2).enrollPlayer(2000);
+      addr2USDC.approve(rpsContract.address, 2000);
+      addr2RPS.enrollPlayer(2000);
       // Move enum [Rock = 0, Paper = 1, Scissor = 2]
-      await rpsContract.connect(addr1).submitMove(1,2000);
-      await rpsContract.connect(addr2).submitMove(2,2000);
+      addr1RPS.submitMove(1,2000);
+      addr2RPS.submitMove(2,2000);
 
       // Result enum [Player1 = 0, Player2 = 1, Draw = 2]
       // third param is winner/result
@@ -169,14 +177,14 @@ describe("Rps", function () {
 
     it("Player 1(Paper) and Player 2(Paper) results should be DRAW", async function () {
 
-      await usdcContract.connect(addr1).approve(rpsContract.address, 2000);
-      await rpsContract.connect(addr1).enrollPlayer(2000);
+      addr1USDC.approve(rpsContract.address, 2000);
+      addr1RPS.enrollPlayer(2000);
 
-      await usdcContract.connect(addr2).approve(rpsContract.address, 2000);
-      await rpsContract.connect(addr2).enrollPlayer(2000);
+      addr2USDC.approve(rpsContract.address, 2000);
+      addr2RPS.enrollPlayer(2000);
       // Move enum [Rock = 0, Paper = 1, Scissor = 2]
-      await rpsContract.connect(addr1).submitMove(1,2000);
-      await rpsContract.connect(addr2).submitMove(1,2000);
+      addr1RPS.submitMove(1,2000);
+      addr2RPS.submitMove(1,2000);
 
       // Result enum [Player1 = 0, Player2 = 1, Draw = 2]
       // third param is winner/result
